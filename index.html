@@ -254,11 +254,18 @@
 
     <div id="canvas-container"></div>
 
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
     <script type="module">
-        // Using jsdelivr CDN which is more reliable and widely supported
-        // This ensures compatibility with GitHub Pages and avoids module resolution issues
-        import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-        import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
         // Particles Background
         const particleCanvas = document.getElementById('particles-bg');
@@ -677,11 +684,11 @@
         // Presets
         const presets = {
             default: {a:1,c:1,uLimit:3,twist:0,segments:40,thickness:1,rotX:0,rotY:0,rotZ:0,scale:1,colorPrimary:0x00f3ff,colorSecondary:0xbc13fe,colorAccent:0xff0055,metalness:0.9,roughness:0.12,emissive:0.25,opacity:1,mode:'wireframe'},
-            twisted: {a:1.5,c:1.2,uLimit:4,twist:3.14,segments:60,thickness:0.8,rotX:0,rotY:0,rotZ:0,scale:1,colorPrimary:0xff0055,colorSecondary:0x00f3ff,colorAccent:0xbc13fe,metalness:0.7,roughness:0.2,emissive:0.5,opacity:1,mode:'solid'},
-            thin: {a:0.5,c:2,uLimit:6,twist:0,segments:80,thickness:0.3,rotX:0,rotY:0,rotZ:0,scale:1,colorPrimary:0x39ff14,colorSecondary:0xff6b35,colorAccent:0x00f3ff,metalness:0.5,roughness:0.3,emissive:0.15,opacity:0.8,mode:'wireframe'},
-            wide: {a:3,c:0.8,uLimit:2,twist:0.5,segments:50,thickness:1.5,rotX:0,rotY:0,rotZ:0,scale:1,colorPrimary:0xbc13fe,colorSecondary:0xff0055,colorAccent:0x00f3ff,metalness:0.95,roughness:0.05,emissive:0.4,opacity:1,mode:'solid'},
-            crystal: {a:1,c:1,uLimit:3,twist:0,segments:100,thickness:1,rotX:0,rotY:0,rotZ:0,scale:1,colorPrimary:0x00f3ff,colorSecondary:0xffffff,colorAccent:0x00f3ff,metalness:1,roughness:0,emissive:0.8,opacity:0.7,mode:'solid'},
-            neon: {a:1.2,c:1.5,uLimit:4,twist:1.57,segments:70,thickness:0.6,rotX:0,rotY:0,rotZ:0,scale:1,colorPrimary:0xff0055,colorSecondary:0x39ff14,colorAccent:0xff6b35,metalness:0.3,roughness:0.5,emissive:1.5,opacity:1,mode:'points'}
+            twisted: {a:1.5,c:1.2,uLimit:4,twist:3.14,segments:60,thickness:0.8,rotX:0,rotY:0,rotZ:0,scale:1,colorPrimary:0xff0055,colorSecondary:0x00f3ff,colorAccent:0xbc13fe,metalness:0.7,roughness:0.2,emissive:0.4,opacity:0.9,mode:'solid'},
+            thin: {a:0.5,c:2,uLimit:6,twist:0,segments:80,thickness:0.3,rotX:0,rotY:0,rotZ:0,scale:1,colorPrimary:0x39ff14,colorSecondary:0xff6b35,colorAccent:0x00f3ff,metalness:0.5,roughness:0.3,emissive:0.5,opacity:0.8,mode:'wireframe'},
+            wide: {a:3,c:0.8,uLimit:2,twist:0.5,segments:50,thickness:1.5,rotX:0,rotY:0,rotZ:0,scale:1,colorPrimary:0xbc13fe,colorSecondary:0xff0055,colorAccent:0x00f3ff,metalness:0.95,roughness:0.05,emissive:0.1,opacity:1,mode:'solid'},
+            crystal: {a:1,c:1,uLimit:3,twist:0,segments:100,thickness:1,rotX:0,rotY:0,rotZ:0,scale:1,colorPrimary:0x00f3ff,colorSecondary:0xffffff,colorAccent:0x00f3ff,metalness:1,roughness:0,emissive:0.2,opacity:0.6,mode:'solid'},
+            neon: {a:1.2,c:1.5,uLimit:4,twist:1.57,segments:70,thickness:0.6,rotX:0,rotY:0,rotZ:0,scale:1,colorPrimary:0xff0055,colorSecondary:0x39ff14,colorAccent:0xff6b35,metalness:0.3,roughness:0.4,emissive:0.8,opacity:0.7,mode:'points'}
         };
 
         document.querySelectorAll('.preset-btn').forEach(btn => {
