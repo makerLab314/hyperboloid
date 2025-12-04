@@ -255,10 +255,10 @@
     <div id="canvas-container"></div>
 
     <script type="module">
-        // Using skypack CDN which automatically resolves all module dependencies
-        // This ensures compatibility with GitHub Pages and avoids bare specifier issues
-        import * as THREE from 'https://cdn.skypack.dev/three@0.160.0';
-        import { OrbitControls } from 'https://cdn.skypack.dev/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+        // Using jsdelivr CDN which is more reliable and widely supported
+        // This ensures compatibility with GitHub Pages and avoids module resolution issues
+        import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+        import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js';
 
         // Particles Background
         const particleCanvas = document.getElementById('particles-bg');
