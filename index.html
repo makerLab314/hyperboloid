@@ -254,18 +254,11 @@
 
     <div id="canvas-container"></div>
 
-    <script type="importmap">
-    {
-        "imports": {
-            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-        }
-    }
-    </script>
     <script type="module">
-        // Using unpkg CDN with import maps for reliable module loading on GitHub Pages
-        import * as THREE from 'three';
-        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        // Using skypack CDN which automatically resolves all module dependencies
+        // This ensures compatibility with GitHub Pages and avoids bare specifier issues
+        import * as THREE from 'https://cdn.skypack.dev/three@0.160.0';
+        import { OrbitControls } from 'https://cdn.skypack.dev/three@0.160.0/examples/jsm/controls/OrbitControls.js';
 
         // Particles Background
         const particleCanvas = document.getElementById('particles-bg');
