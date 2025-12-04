@@ -682,9 +682,9 @@
                     document.getElementById('roughness').value = params.roughness;
                     document.getElementById('emissive').value = params.emissive;
                     document.getElementById('opacity').value = params.opacity;
-                    document.getElementById('color-primary').value = '#' + params.colorPrimary.toString(16).padStart(6,'0');
-                    document.getElementById('color-secondary').value = '#' + params.colorSecondary.toString(16).padStart(6,'0');
-                    document.getElementById('color-accent').value = '#' + params.colorAccent.toString(16).padStart(6,'0');
+                    document.getElementById('color-primary').value = '#' + params.colorPrimary.toString(16).padStart(6,'0').toLowerCase();
+                    document.getElementById('color-secondary').value = '#' + params.colorSecondary.toString(16).padStart(6,'0').toLowerCase();
+                    document.getElementById('color-accent').value = '#' + params.colorAccent.toString(16).padStart(6,'0').toLowerCase();
                     
                     // Update displays
                     updateVal('radius', params.a.toFixed(2));
@@ -741,10 +741,12 @@
                 mesh.rotation.y += params.animSpeed * 0.35 * delta;
             }
 
-            // Pulsing effect
+            // Pulsing effect (additive to base scale)
             if(mesh && params.pulseRate > 0){
-                const pulse = 1 + Math.sin(t * params.pulseRate) * 0.1;
-                mesh.scale.setScalar(params.scale * pulse);
+                const pulse = Math.sin(t * params.pulseRate) * 0.1;
+                mesh.scale.setScalar(params.scale * (1 + pulse));
+            } else if(mesh) {
+                mesh.scale.setScalar(params.scale);
             }
 
             // pulsierendes Licht
@@ -773,6 +775,11 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
             particleCanvas.width = window.innerWidth;
             particleCanvas.height = window.innerHeight;
+            // Redistribute particles to new canvas dimensions
+            particles.forEach(p => {
+                if(p.x > particleCanvas.width) p.x = Math.random() * particleCanvas.width;
+                if(p.y > particleCanvas.height) p.y = Math.random() * particleCanvas.height;
+            });
         });
 
         // Start
