@@ -496,6 +496,8 @@
             if(elem) elem.innerText = val;
         };
 
+        const toHexColor = (num) => '#' + num.toString(16).padStart(6,'0').toLowerCase();
+
         // Geometry controls
         document.getElementById('radius').addEventListener('input', (e) => {
             params.a = parseFloat(e.target.value);
@@ -682,9 +684,9 @@
                     document.getElementById('roughness').value = params.roughness;
                     document.getElementById('emissive').value = params.emissive;
                     document.getElementById('opacity').value = params.opacity;
-                    document.getElementById('color-primary').value = '#' + params.colorPrimary.toString(16).padStart(6,'0').toLowerCase();
-                    document.getElementById('color-secondary').value = '#' + params.colorSecondary.toString(16).padStart(6,'0').toLowerCase();
-                    document.getElementById('color-accent').value = '#' + params.colorAccent.toString(16).padStart(6,'0').toLowerCase();
+                    document.getElementById('color-primary').value = toHexColor(params.colorPrimary);
+                    document.getElementById('color-secondary').value = toHexColor(params.colorSecondary);
+                    document.getElementById('color-accent').value = toHexColor(params.colorAccent);
                     
                     // Update displays
                     updateVal('radius', params.a.toFixed(2));
@@ -742,11 +744,13 @@
             }
 
             // Pulsing effect (additive to base scale)
+            let currentScale = params.scale;
             if(mesh && params.pulseRate > 0){
                 const pulse = Math.sin(t * params.pulseRate) * 0.1;
-                mesh.scale.setScalar(params.scale * (1 + pulse));
-            } else if(mesh) {
-                mesh.scale.setScalar(params.scale);
+                currentScale = params.scale * (1 + pulse);
+            }
+            if(mesh && mesh.scale.x !== currentScale) {
+                mesh.scale.setScalar(currentScale);
             }
 
             // pulsierendes Licht
@@ -770,15 +774,19 @@
         }
 
         window.addEventListener('resize', () => {
+            const oldWidth = particleCanvas.width;
+            const oldHeight = particleCanvas.height;
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
             particleCanvas.width = window.innerWidth;
             particleCanvas.height = window.innerHeight;
-            // Redistribute particles to new canvas dimensions
+            // Redistribute particles proportionally to new canvas dimensions
+            const scaleX = particleCanvas.width / oldWidth;
+            const scaleY = particleCanvas.height / oldHeight;
             particles.forEach(p => {
-                if(p.x > particleCanvas.width) p.x = Math.random() * particleCanvas.width;
-                if(p.y > particleCanvas.height) p.y = Math.random() * particleCanvas.height;
+                p.x *= scaleX;
+                p.y *= scaleY;
             });
         });
 
