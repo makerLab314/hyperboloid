@@ -254,10 +254,18 @@
 
     <div id="canvas-container"></div>
 
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
     <script type="module">
-        // Nutzung von jsDelivr für stabilen Modul-Zugriff
-        import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-        import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+        // Using unpkg CDN with import maps for reliable module loading on GitHub Pages
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
         // Particles Background
         const particleCanvas = document.getElementById('particles-bg');
@@ -790,6 +798,28 @@
             });
         });
 
+        // Initialize all value displays to match default params
+        function initializeValueDisplays() {
+            updateVal('radius', params.a.toFixed(2));
+            updateVal('height', params.uLimit.toFixed(2));
+            updateVal('curve', params.c.toFixed(2));
+            updateVal('twist', params.twist.toFixed(2));
+            updateVal('segments', params.segments);
+            updateVal('thickness', params.thickness.toFixed(2));
+            updateVal('rotx', params.rotX.toFixed(2));
+            updateVal('roty', params.rotY.toFixed(2));
+            updateVal('rotz', params.rotZ.toFixed(2));
+            updateVal('scale', params.scale.toFixed(2));
+            updateVal('metalness', params.metalness.toFixed(2));
+            updateVal('roughness', params.roughness.toFixed(2));
+            updateVal('emissive', params.emissive.toFixed(2));
+            updateVal('opacity', params.opacity.toFixed(2));
+            updateVal('animspeed', params.animSpeed.toFixed(1));
+            updateVal('pulse', params.pulseRate.toFixed(1));
+        }
+        
+        initializeValueDisplays();
+        
         // Start
         animate();
     </script>
