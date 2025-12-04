@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>HYPERBOLOID // GENERATOR</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;500&display=swap');
+
+        :root{
+            --neon-cyan:#00f3ff;
+            --neon-pink:#ff0055;
+            --neon-purple:#bc13fe;
+            --bg-color:#050505;
+            --panel-bg:rgba(10,15,30,0.65);
+        }
+
+        html,body{height:100%;margin:0;background:radial-gradient(circle at center,#1a1a2e 0%,#000 100%);font-family:'Rajdhani',sans-serif;color:#fff;overflow:hidden}
+        #canvas-container{position:absolute;inset:0;z-index:1}
+        .scanline{position:absolute;inset:0;pointer-events:none;background:
+            linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.2));
+            background-size:100% 4px;opacity:0.25;z-index:20}
+        #ui-container{
+            position:absolute;top:20px;right:20px;width:340px;padding:22px;background:var(--panel-bg);
+            backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.08);border-left:4px solid var(--neon-cyan);
+            box-shadow:0 0 20px rgba(0,243,255,0.12);z-index:10;border-radius:0 15px 0 15px;transform:skewX(-2deg)
+        }
+        h1{font-family:'Orbitron',sans-serif;font-weight:900;font-size:1.4rem;margin:0 0 16px;background:linear-gradient(90deg,#fff,var(--neon-cyan));
+            -webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:1.5px;text-transform:uppercase}
+        .control-group{margin-bottom:14px}
+        label{display:flex;justify-content:space-between;font-size:0.9rem;margin-bottom:8px;color:var(--neon-cyan);text-transform:uppercase;letter-spacing:1px}
+        span.value-display{color:#fff;font-weight:700}
+        input[type=range]{-webkit-appearance:none;width:100%;background:transparent}
+        input[type=range]::-webkit-slider-runnable-track{height:4px;background:rgba(255,255,255,0.08);border:1px solid rgba(0,243,255,0.2)}
+        input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;height:16px;width:16px;background:var(--neon-pink);box-shadow:0 0 10px var(--neon-pink);transform:rotate(45deg);border:2px solid #fff;margin-top:-6px}
+        .btn-group{display:flex;gap:10px}
+        button{flex:1;background:transparent;border:1px solid var(--neon-cyan);color:var(--neon-cyan);padding:10px;font-family:'Orbitron';cursor:pointer;text-transform:uppercase;letter-spacing:1px}
+        button:hover{background:var(--neon-cyan);color:#000;box-shadow:0 0 12px var(--neon-cyan)}
+        button.active{background:var(--neon-purple);border-color:var(--neon-purple);color:#fff;box-shadow:0 0 12px var(--neon-purple)}
+        #data-overlay{position:absolute;left:30px;bottom:30px;color:rgba(255,255,255,0.6);font-family:'Orbitron',monospace;font-size:0.85rem;z-index:5;pointer-events:none}
+    </style>
+</head>
+<body>
+    <div class="scanline"></div>
+
+    <div id="data-overlay">
+        SYS.STATUS: ONLINE<br>
+        RENDER: WEBGL<br>
+        GEOMETRY: HYPERBOLOID_1_SHEET<br>
+        <span id="fps-counter">FPS: --</span>
+    </div>
+
+    <div id="ui-container">
+        <h1>Konstruktor</h1>
+
+        <div class="control-group">
+            <label>Taille (Radius A) <span id="val-radius" class="value-display">1.0</span></label>
+            <input type="range" id="radius" min="0.1" max="5.0" step="0.1" value="1.0">
+        </div>
+
+        <div class="control-group">
+            <label>Höhe (Limit Z) <span id="val-height" class="value-display">3.0</span></label>
+            <input type="range" id="height" min="1.0" max="10.0" step="0.1" value="3.0">
+        </div>
+
+        <div class="control-group">
+            <label>Krümmung (Koeff. C) <span id="val-curve" class="value-display">1.0</span></label>
+            <input type="range" id="curve" min="0.1" max="3.0" step="0.1" value="1.0">
+        </div>
+        
+        <div class="control-group">
+            <label>Verdrehung (Twist) <span id="val-twist" class="value-display">0.0</span></label>
+            <input type="range" id="twist" min="0" max="6.28" step="0.01" value="0.0">
+        </div>
+
+        <div class="control-group">
+            <label>Segmente (Auflösung) <span id="val-segments" class="value-display">40</span></label>
+            <input type="range" id="segments" min="8" max="140" step="1" value="40">
+        </div>
+
+        <div class="control-group">
+            <label>Anzeige-Modus</label>
+            <div class="btn-group">
+                <button id="mode-wire" class="active">Netz</button>
+                <button id="mode-solid">Solid</button>
+                <button id="mode-points">Partikel</button>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <button id="anim-toggle" class="active">Auto-Rotation: EIN</button>
+        </div>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <script type="module">
+        // Nutzung von jsDelivr für stabilen Modul-Zugriff
+        import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+        import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+
+        // Parameter
+        const params = {
+            a: 1.0,
+            c: 1.0,
+            uLimit: 3.0,
+            twist: 0.0,
+            segments: 40,
+            mode: 'wireframe',
+            autoRotate: true
+        };
+
+        // Szene, Kamera, Renderer
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x000000, 0.02);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(8, 5, 8);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.toneMapping = THREE.ReinhardToneMapping;
+        container.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.07;
+
+        // Postprocessing (einfacher Bloom via emissive Material + renderer settings)
+        // Materialien
+        const materialWire = new THREE.MeshBasicMaterial({
+            color: 0x00f3ff,
+            wireframe: true,
+            transparent: true,
+            opacity: 0.6
+        });
+        const materialSolid = new THREE.MeshPhysicalMaterial({
+            color: 0x0b0b0b,
+            emissive: 0xbc13fe,
+            emissiveIntensity: 0.25,
+            metalness: 0.9,
+            roughness: 0.12,
+            clearcoat: 1.0,
+            side: THREE.DoubleSide
+        });
+        const materialPoints = new THREE.PointsMaterial({
+            color: 0xff0055,
+            size: 0.08,
+            transparent: true,
+            opacity: 0.9,
+            blending: THREE.AdditiveBlending
+        });
+
+        let mesh = null;
+
+        // Funktion: eigene Parametrische Geometrie als BufferGeometry
+        function buildHyperboloidGeometry(a, c, uLimit, segments, twist) {
+            const seg = Math.max(3, Math.floor(segments));
+            const rows = seg + 1; // v direction
+            const cols = seg + 1; // u direction (height)
+            const vertexCount = rows * cols;
+            const positions = new Float32Array(vertexCount * 3);
+            const uvs = new Float32Array(vertexCount * 2);
+            let ptr = 0;
+            let uPtr = 0;
+
+            for (let i = 0; i <= seg; i++) {
+                // i -> along height (u)
+                const iu = i / seg;
+                const u = -uLimit + iu * (2 * uLimit); // map 0..1 to -uLimit..+uLimit
+
+                for (let j = 0; j <= seg; j++) {
+                    const jv = j / seg;
+                    const v = jv * Math.PI * 2;
+
+                    const r = a * Math.sqrt(1 + u * u);
+                    const twistAngle = u * twist;
+
+                    const x = r * Math.cos(v + twistAngle);
+                    const y = u * c; // Three.js Y is up
+                    const z = r * Math.sin(v + twistAngle);
+
+                    positions[ptr++] = x;
+                    positions[ptr++] = y;
+                    positions[ptr++] = z;
+
+                    uvs[uPtr++] = jv;
+                    uvs[uPtr++] = iu;
+                }
+            }
+
+            // indices
+            const indices = new Uint32Array(seg * seg * 6);
+            let ip = 0;
+            for (let i = 0; i < seg; i++) {
+                for (let j = 0; j < seg; j++) {
+                    const aIdx = i * (seg + 1) + j;
+                    const bIdx = aIdx + 1;
+                    const cIdx = (i + 1) * (seg + 1) + j;
+                    const dIdx = cIdx + 1;
+
+                    // two triangles
+                    indices[ip++] = aIdx;
+                    indices[ip++] = cIdx;
+                    indices[ip++] = bIdx;
+
+                    indices[ip++] = bIdx;
+                    indices[ip++] = cIdx;
+                    indices[ip++] = dIdx;
+                }
+            }
+
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+            geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+            geometry.computeVertexNormals();
+            geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0, 0), Math.hypot(a * Math.sqrt(1 + uLimit * uLimit), uLimit * c) * 1.2);
+
+            return geometry;
+        }
+
+        function createHyperboloid() {
+            if (mesh) {
+                scene.remove(mesh);
+                if (mesh.geometry) mesh.geometry.dispose();
+                if (mesh.material) {
+                    if (Array.isArray(mesh.material)) mesh.material.forEach(m => m.dispose());
+                    else mesh.material.dispose();
+                }
+                mesh = null;
+            }
+
+            const geom = buildHyperboloidGeometry(params.a, params.c, params.uLimit, params.segments, params.twist);
+
+            if (params.mode === 'points') {
+                mesh = new THREE.Points(geom, materialPoints);
+            } else {
+                // choose material copy to allow different wireframe toggles without mutating shared mat
+                if (params.mode === 'solid') {
+                    mesh = new THREE.Mesh(geom, materialSolid);
+                } else {
+                    // wireframe
+                    const mat = materialWire.clone();
+                    mat.wireframe = true;
+                    mesh = new THREE.Mesh(geom, mat);
+                }
+            }
+            scene.add(mesh);
+        }
+
+        // Lichter & Hilfen
+        const ambientLight = new THREE.AmbientLight(0x404040, 1.2);
+        scene.add(ambientLight);
+
+        const pointLight1 = new THREE.PointLight(0x00f3ff, 2.0, 100);
+        pointLight1.position.set(10, 10, 10);
+        scene.add(pointLight1);
+
+        const pointLight2 = new THREE.PointLight(0xff0055, 2.0, 100);
+        pointLight2.position.set(-10, -10, -10);
+        scene.add(pointLight2);
+
+        const grid = new THREE.GridHelper(60, 60, 0x222222, 0x111111);
+        scene.add(grid);
+
+        createHyperboloid();
+
+        // UI Bindings
+        const updateVal = (id, val) => document.getElementById(`val-${id}`).innerText = val;
+
+        document.getElementById('radius').addEventListener('input', (e) => {
+            params.a = parseFloat(e.target.value);
+            updateVal('radius', params.a.toFixed(2));
+            createHyperboloid();
+        });
+        document.getElementById('height').addEventListener('input', (e) => {
+            params.uLimit = parseFloat(e.target.value);
+            updateVal('height', params.uLimit.toFixed(2));
+            createHyperboloid();
+        });
+        document.getElementById('curve').addEventListener('input', (e) => {
+            params.c = parseFloat(e.target.value);
+            updateVal('curve', params.c.toFixed(2));
+            createHyperboloid();
+        });
+        document.getElementById('twist').addEventListener('input', (e) => {
+            params.twist = parseFloat(e.target.value);
+            updateVal('twist', params.twist.toFixed(2));
+            createHyperboloid();
+        });
+        document.getElementById('segments').addEventListener('input', (e) => {
+            params.segments = Math.max(3, parseInt(e.target.value));
+            updateVal('segments', params.segments);
+            createHyperboloid();
+        });
+
+        const btns = ['mode-wire', 'mode-solid', 'mode-points'];
+        btns.forEach(id => {
+            document.getElementById(id).addEventListener('click', (ev) => {
+                btns.forEach(b => document.getElementById(b).classList.remove('active'));
+                ev.target.classList.add('active');
+                if (id === 'mode-wire') params.mode = 'wireframe';
+                if (id === 'mode-solid') params.mode = 'solid';
+                if (id === 'mode-points') params.mode = 'points';
+                createHyperboloid();
+            });
+        });
+
+        const animBtn = document.getElementById('anim-toggle');
+        animBtn.addEventListener('click', () => {
+            params.autoRotate = !params.autoRotate;
+            animBtn.innerText = params.autoRotate ? "Auto-Rotation: EIN" : "Auto-Rotation: AUS";
+            animBtn.classList.toggle('active');
+        });
+
+        // Animation & FPS
+        const clock = new THREE.Clock();
+        let lastFPSUpdate = performance.now();
+        let frames = 0;
+        const fpsElem = document.getElementById('fps-counter');
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+
+            if (mesh && params.autoRotate) mesh.rotation.y += 0.35 * delta;
+
+            // pulsierendes Licht
+            const t = clock.getElapsedTime();
+            pointLight1.intensity = 1.5 + Math.sin(t * 2.0) * 0.5;
+            pointLight2.intensity = 1.5 + Math.cos(t * 1.6) * 0.45;
+
+            controls.update();
+            renderer.render(scene, camera);
+
+            // FPS update jede Sekunde
+            frames++;
+            const now = performance.now();
+            if (now - lastFPSUpdate >= 1000) {
+                const fps = Math.round((frames * 1000) / (now - lastFPSUpdate));
+                fpsElem.innerText = `FPS: ${fps}`;
+                frames = 0;
+                lastFPSUpdate = now;
+            }
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Start
+        animate();
+
+        // Hinweis für lokale Nutzung
+        // Viele Browser blockieren modulare CDN-Imports bei file:// URLs.
+        // Wenn die Seite leer bleibt: per Terminal ins Verzeichnis wechseln und z.B. `python -m http.server` ausführen,
+        // dann im Browser http://localhost:8000/hyperboloid.html aufrufen.
+    </script>
+</body>
+</html>
