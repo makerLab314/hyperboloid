@@ -1,0 +1,24 @@
+# System files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Editor directories
+.vscode/
+.idea/
+*.sublime-*
+
+# Build artifacts
+dist/
+build/
+*.log
+
+# Dependencies (if added later)
+node_modules/
+package-lock.json
+
+# Screenshots (user-generated)
+screenshot_*.png
+hyperboloid-*.png
