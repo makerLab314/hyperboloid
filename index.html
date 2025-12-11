@@ -120,7 +120,7 @@
             
             <div class="control-group">
                 <label>Verdrehung (Twist) <span id="val-twist" class="value-display">0.0</span></label>
-                <input type="range" id="twist" min="0" max="6.28" step="0.01" value="0.0">
+                <input type="range" id="twist" min="-6.28" max="6.28" step="0.01" value="0.0">
             </div>
 
             <div class="control-group">
@@ -224,6 +224,18 @@
                     <button id="mode-wire" class="active">Netz</button>
                     <button id="mode-solid">Solid</button>
                     <button id="mode-points">Partikel</button>
+                    <button id="mode-lines">Linien</button>
+                </div>
+            </div>
+
+            <div class="control-group" id="physics-control" style="display:none;">
+                <label>Physik-Modus</label>
+                <div class="btn-group">
+                    <button id="physics-toggle">Gummiband: AUS</button>
+                </div>
+                <div style="margin-top:8px;">
+                    <label>Reiß-Schwelle <span id="val-tear" class="value-display">2.0</span></label>
+                    <input type="range" id="tear-threshold" min="1.1" max="5.0" step="0.1" value="2.0">
                 </div>
             </div>
 
@@ -325,8 +337,14 @@
             animSpeed: 1.0,
             pulseRate: 0.5,
             showGrid: true,
-            showFog: true
+            showFog: true,
+            physicsEnabled: false,
+            tearThreshold: 2.0
         };
+
+        // Physics state for rubber band simulation
+        let physicsLines = [];
+        let tornLines = new Set();
 
         // Szene, Kamera, Renderer
         const container = document.getElementById('canvas-container');
@@ -438,15 +456,149 @@
             return geometry;
         }
 
+        // Build lines geometry - straight lines connecting top and bottom of the hyperboloid
+        function buildLinesGeometry(a, c, uLimit, numLines, twist, thickness) {
+            const positions = [];
+            const colors = [];
+            const lineRestLengths = [];
+            
+            // Calculate rest length (straight vertical line when twist = 0)
+            const topY = uLimit * c;
+            const bottomY = -uLimit * c;
+            const restLength = topY - bottomY;
+            
+            for (let i = 0; i < numLines; i++) {
+                const angle = (i / numLines) * Math.PI * 2;
+                
+                // Top point (u = uLimit)
+                const topR = a * Math.sqrt(1 + uLimit * uLimit) * thickness;
+                const topTwist = uLimit * twist;
+                const topX = topR * Math.cos(angle + topTwist);
+                const topZ = topR * Math.sin(angle + topTwist);
+                
+                // Bottom point (u = -uLimit)
+                const bottomR = a * Math.sqrt(1 + uLimit * uLimit) * thickness;
+                const bottomTwist = -uLimit * twist;
+                const bottomX = bottomR * Math.cos(angle + bottomTwist);
+                const bottomZ = bottomR * Math.sin(angle + bottomTwist);
+                
+                positions.push(topX, topY, topZ);
+                positions.push(bottomX, bottomY, bottomZ);
+                
+                // Calculate current length for physics
+                const dx = topX - bottomX;
+                const dy = topY - bottomY;
+                const dz = topZ - bottomZ;
+                const currentLength = Math.sqrt(dx*dx + dy*dy + dz*dz);
+                lineRestLengths.push({ index: i, restLength, currentLength });
+            }
+            
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            geometry.userData = { lineRestLengths, numLines };
+            
+            return geometry;
+        }
+
+        // Material for lines
+        const materialLine = new THREE.LineBasicMaterial({
+            color: 0x00f3ff,
+            transparent: true,
+            opacity: 0.9,
+            linewidth: 2
+        });
+
         function createHyperboloid() {
             if (mesh) {
                 scene.remove(mesh);
-                if (mesh.geometry) mesh.geometry.dispose();
-                if (mesh.material) {
-                    if (Array.isArray(mesh.material)) mesh.material.forEach(m => m.dispose());
-                    else mesh.material.dispose();
+                // Handle cleanup for Groups (lines mode)
+                if (mesh.isGroup) {
+                    mesh.children.forEach(child => {
+                        if (child.geometry) child.geometry.dispose();
+                        if (child.material) child.material.dispose();
+                    });
+                } else {
+                    if (mesh.geometry) mesh.geometry.dispose();
+                    if (mesh.material) {
+                        if (Array.isArray(mesh.material)) mesh.material.forEach(m => m.dispose());
+                        else mesh.material.dispose();
+                    }
                 }
                 mesh = null;
+            }
+
+            // Handle lines mode separately
+            if (params.mode === 'lines') {
+                const numLines = Math.max(8, Math.floor(params.segments));
+                const linesGeom = buildLinesGeometry(params.a, params.c, params.uLimit, numLines, params.twist, params.thickness);
+                document.getElementById('vertex-counter').innerText = `LINES: ${numLines}`;
+                
+                // Reset torn lines when geometry changes (unless physics is active and we want to preserve state)
+                if (!params.physicsEnabled) {
+                    tornLines.clear();
+                }
+                
+                // Create individual line segments with physics support
+                const group = new THREE.Group();
+                const positions = linesGeom.attributes.position.array;
+                const lineData = linesGeom.userData;
+                
+                for (let i = 0; i < numLines; i++) {
+                    // Skip torn lines
+                    if (tornLines.has(i)) continue;
+                    
+                    const linePositions = new Float32Array(6);
+                    linePositions[0] = positions[i * 6];
+                    linePositions[1] = positions[i * 6 + 1];
+                    linePositions[2] = positions[i * 6 + 2];
+                    linePositions[3] = positions[i * 6 + 3];
+                    linePositions[4] = positions[i * 6 + 4];
+                    linePositions[5] = positions[i * 6 + 5];
+                    
+                    const lineGeom = new THREE.BufferGeometry();
+                    lineGeom.setAttribute('position', new THREE.Float32BufferAttribute(linePositions, 3));
+                    
+                    // Color based on stretch if physics enabled
+                    const mat = materialLine.clone();
+                    mat.color.setHex(params.colorPrimary);
+                    mat.opacity = params.opacity;
+                    
+                    if (params.physicsEnabled && lineData.lineRestLengths[i]) {
+                        const { restLength, currentLength } = lineData.lineRestLengths[i];
+                        const stretchRatio = currentLength / restLength;
+                        
+                        // Check if line should tear
+                        if (stretchRatio > params.tearThreshold) {
+                            tornLines.add(i);
+                            lineGeom.dispose();
+                            mat.dispose();
+                            continue;
+                        }
+                        
+                        // Color gradient: green (relaxed) -> yellow -> red (stretched)
+                        if (stretchRatio <= 1.0) {
+                            mat.color.setHex(0x00ff00); // Green - compressed
+                        } else if (stretchRatio < 1.5) {
+                            // Interpolate green to yellow
+                            const t = (stretchRatio - 1.0) / 0.5;
+                            mat.color.setRGB(t, 1, 0);
+                        } else if (stretchRatio < params.tearThreshold) {
+                            // Interpolate yellow to red
+                            const t = (stretchRatio - 1.5) / (params.tearThreshold - 1.5);
+                            mat.color.setRGB(1, 1 - t, 0);
+                        }
+                    }
+                    
+                    const line = new THREE.Line(lineGeom, mat);
+                    line.userData = { lineIndex: i };
+                    group.add(line);
+                }
+                
+                mesh = group;
+                mesh.rotation.set(params.rotX, params.rotY, params.rotZ);
+                mesh.scale.setScalar(params.scale);
+                scene.add(mesh);
+                return;
             }
 
             const geom = buildHyperboloidGeometry(params.a, params.c, params.uLimit, params.segments, params.twist, params.thickness);
@@ -625,7 +777,7 @@
         });
 
         // Display mode buttons
-        const btns = ['mode-wire', 'mode-solid', 'mode-points'];
+        const btns = ['mode-wire', 'mode-solid', 'mode-points', 'mode-lines'];
         btns.forEach(id => {
             document.getElementById(id).addEventListener('click', (ev) => {
                 btns.forEach(b => document.getElementById(b).classList.remove('active'));
@@ -633,8 +785,34 @@
                 if (id === 'mode-wire') params.mode = 'wireframe';
                 if (id === 'mode-solid') params.mode = 'solid';
                 if (id === 'mode-points') params.mode = 'points';
+                if (id === 'mode-lines') params.mode = 'lines';
+                
+                // Show/hide physics control based on mode
+                const physicsControl = document.getElementById('physics-control');
+                physicsControl.style.display = params.mode === 'lines' ? 'block' : 'none';
+                
                 createHyperboloid();
             });
+        });
+
+        // Physics toggle
+        const physicsBtn = document.getElementById('physics-toggle');
+        physicsBtn.addEventListener('click', () => {
+            params.physicsEnabled = !params.physicsEnabled;
+            physicsBtn.innerText = params.physicsEnabled ? "Gummiband: EIN" : "Gummiband: AUS";
+            physicsBtn.classList.toggle('active');
+            if (!params.physicsEnabled) {
+                tornLines.clear(); // Reset torn lines when disabling physics
+            }
+            createHyperboloid();
+        });
+
+        // Tear threshold
+        document.getElementById('tear-threshold').addEventListener('input', (e) => {
+            params.tearThreshold = parseFloat(e.target.value);
+            document.getElementById('val-tear').innerText = params.tearThreshold.toFixed(1);
+            tornLines.clear(); // Reset torn lines when threshold changes
+            createHyperboloid();
         });
 
         const animBtn = document.getElementById('anim-toggle');
@@ -724,6 +902,11 @@
                     if(params.mode === 'wireframe') document.getElementById('mode-wire').classList.add('active');
                     if(params.mode === 'solid') document.getElementById('mode-solid').classList.add('active');
                     if(params.mode === 'points') document.getElementById('mode-points').classList.add('active');
+                    if(params.mode === 'lines') document.getElementById('mode-lines').classList.add('active');
+                    
+                    // Show/hide physics control based on mode
+                    const physicsControl = document.getElementById('physics-control');
+                    physicsControl.style.display = params.mode === 'lines' ? 'block' : 'none';
                     
                     createHyperboloid();
                 }
